@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Bảng người dùng của Thịnh
+model NGUOIDUNG {
+  MANGUOIDUNG Int     @id @default(autoincrement())
+  HOTEN       String?
+  EMAIL       String  @unique
+  MATKHAU     String
+  SODIENTHOAI String?
+  VAITRO      String  @default("Khách hàng")
+  TRANGTHAI   String  @default("Hoạt động")
+}
