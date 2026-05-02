@@ -1,7 +1,7 @@
-const express = require('express');
-const { PrismaClient } = require('@prisma/client');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
+import express from 'express';
+import { PrismaClient } from '@prisma/client';
+import cors from 'cors';
+import bcrypt from 'bcryptjs';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -12,8 +12,12 @@ app.use(express.json());
 // API Đăng ký người dùng
 app.post('/api/register', async (req, res) => {
   const { hoTen, email, matKhau, soDienThoai } = req.body;
+
   try {
+    // 1. Mã hóa mật khẩu
     const hashedPassword = await bcrypt.hash(matKhau, 10);
+
+    // 2. Lưu vào database SQLite
     const user = await prisma.nGUOIDUNG.create({
       data: {
         HOTEN: hoTen,
@@ -22,13 +26,15 @@ app.post('/api/register', async (req, res) => {
         SODIENTHOAI: soDienThoai,
       },
     });
-    res.status(201).json({ message: 'Thịnh ơi, đăng ký thành công rồi!', user });
+
+    res.status(201).json({ message: 'Đăng ký thành công rồi!', user });
   } catch (error) {
-    res.status(400).json({ error: 'Lỗi: Email có thể đã tồn tại!' });
+    console.error(error);
+    res.status(400).json({ error: 'Email đã tồn tại hoặc dữ liệu không hợp lệ!' });
   }
 });
 
 const PORT = 5000;
 app.listen(PORT, () => {
-  console.log(`Server đang chạy tại http://localhost:${PORT}`);
+  console.log(`🚀 Server bộ não đang chạy tại http://localhost:${PORT}`);
 });
