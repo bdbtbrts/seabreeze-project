@@ -33,7 +33,7 @@ function Login() {
       if (response.ok) {
         alert("Đăng nhập thành công! Chào " + data.user.hoTen);
         localStorage.setItem('user', JSON.stringify(data.user)); // Lưu phiên đăng nhập
-        navigate('/'); // Chuyển về trang chủ
+        window.location.href = '/'; // Lệnh này sẽ load lại toàn bộ trang, Header sẽ phải quét lại localStorage và thấy tên bạn 
       } else {
         alert("Thất bại: " + data.error);
       }
