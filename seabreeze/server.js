@@ -70,3 +70,51 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ error: "Lỗi hệ thống rồi: " + error.message });
   }
 });
+
+
+// API Cập nhật thông tin người dùng
+app.put('/api/update-profile', async (req, res) => {
+  const { email, soDienThoai } = req.body;
+
+  try {
+    const updatedUser = await prisma.nGUOIDUNG.update({
+      where: { EMAIL: email },
+      data: { SODIENTHOAI: soDienThoai },
+    });
+
+    res.status(200).json({ 
+      message: "Cập nhật thành công!", 
+      user: { 
+        hoTen: updatedUser.HOTEN, 
+        email: updatedUser.EMAIL, 
+        soDienThoai: updatedUser.SODIENTHOAI 
+      } 
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Không thể cập nhật thông tin!" });
+  }
+});
+
+// API Đổi mật khẩu
+app.post('/api/change-password', async (req, res) => {
+  const { email, oldPassword, newPassword } = req.body;
+
+  try {
+    const user = await prisma.nGUOIDUNG.findUnique({ where: { EMAIL: email } });
+    
+    // Kiểm tra mật khẩu cũ có đúng không
+    const isMatch = await bcrypt.compare(oldPassword, user.MATKHAU);
+    if (!isMatch) return res.status(401).json({ error: "Mật khẩu cũ không chính xác!" });
+
+    // Mã hóa mật khẩu mới và lưu lại
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.nGUOIDUNG.update({
+      where: { EMAIL: email },
+      data: { MATKHAU: hashedNewPassword },
+    });
+
+    res.status(200).json({ message: "Đổi mật khẩu thành công!" });
+  } catch (error) {
+    res.status(500).json({ error: "Lỗi hệ thống!" });
+  }
+});
