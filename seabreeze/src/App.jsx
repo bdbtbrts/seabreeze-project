@@ -7,6 +7,8 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import './index.css'; // Gọi CSS cũ của bạn vào đây
 import Profile from './pages/Profile/Profile';
+import History from './pages/History/History';
+
 
 function App() {
   return (
@@ -20,6 +22,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/history" element={<History />} />
       </Routes>
     </BrowserRouter>
   );

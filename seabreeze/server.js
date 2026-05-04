@@ -50,7 +50,7 @@ app.post('/api/login', async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "Thịnh ơi, Email này chưa đăng ký!" });
+      return res.status(404).json({ error: " Email này chưa đăng ký!" });
     }
 
     // 2. Kiểm tra mật khẩu (So sánh mật khẩu gõ vào với mật khẩu đã mã hóa)
@@ -116,5 +116,29 @@ app.post('/api/change-password', async (req, res) => {
     res.status(200).json({ message: "Đổi mật khẩu thành công!" });
   } catch (error) {
     res.status(500).json({ error: "Lỗi hệ thống!" });
+  }
+});
+
+// API: Lấy danh sách đơn hàng của người dùng theo Email
+app.get('/api/orders/:email', async (req, res) => {
+  const { email } = req.params;
+  try {
+    const orders = await prisma.dONHANG.findMany({
+      where: {
+        NGUOIDUNG: {
+          EMAIL: email
+        }
+      },
+      include: {
+        CT_DONHANG: true // Lấy luôn chi tiết các món trong đơn hàng đó
+      },
+      orderBy: {
+        NGAYDAT: 'desc' // Đơn mới nhất hiện lên đầu
+      }
+    });
+    res.status(200).json(orders);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Lỗi khi lấy lịch sử đơn hàng!" });
   }
 });
