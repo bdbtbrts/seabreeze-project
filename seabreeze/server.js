@@ -2,6 +2,14 @@ import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// --- CẤU HÌNH ĐƯỜNG DẪN (Để chạy được import/export trên Node.js) ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const prisma = new PrismaClient();
@@ -9,15 +17,70 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 
-// API Đăng ký người dùng
+// --- CẤU HÌNH LƯU TRỮ ẢNH VỚI MULTER ---
+
+// 1. Tự động tạo thư mục 'uploads' nếu chưa có để tránh lỗi server
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log("📁 Đã tạo thư mục uploads mới!");
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // Nơi chứa ảnh
+  },
+  filename: (req, file, cb) => {
+    // Đặt tên: Thời-gian-tên-file-gốc.jpg
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 } // Giới hạn 5MB cho ảnh
+});
+
+// Cho phép trình duyệt xem ảnh trong thư mục uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// --- HỆ THỐNG API ---
+
+// 1. API Tải ảnh đại diện lên
+app.post('/api/upload-avatar', upload.single('avatar'), async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Kiểm tra xem file đã lên tới server chưa
+    if (!req.file) {
+      return res.status(400).json({ error: "Thịnh ơi, server chưa nhận được file ảnh!" });
+    }
+
+    const avatarUrl = `http://localhost:5000/uploads/${req.file.filename}`;
+
+    // Cập nhật đường dẫn ảnh vào Database
+    const updatedUser = await prisma.nGUOIDUNG.update({
+      where: { EMAIL: email },
+      data: { AVATAR: avatarUrl },
+    });
+
+    console.log(`✅ Đã cập nhật Avatar cho: ${email}`);
+    res.status(200).json({ 
+      message: "Tải ảnh lên thành công!", 
+      avatarUrl: avatarUrl 
+    });
+
+  } catch (error) {
+    console.error("❌ LỖI TẠI SERVER:", error);
+    res.status(500).json({ error: "Lỗi hệ thống: " + error.message });
+  }
+});
+
+// 2. API Đăng ký
 app.post('/api/register', async (req, res) => {
   const { hoTen, email, matKhau, soDienThoai } = req.body;
-
   try {
-    // 1. Mã hóa mật khẩu
     const hashedPassword = await bcrypt.hash(matKhau, 10);
-
-    // 2. Lưu vào database SQLite
     const user = await prisma.nGUOIDUNG.create({
       data: {
         HOTEN: hoTen,
@@ -26,119 +89,88 @@ app.post('/api/register', async (req, res) => {
         SODIENTHOAI: soDienThoai,
       },
     });
-
-    res.status(201).json({ message: 'Đăng ký thành công rồi!', user });
+    res.status(201).json({ message: 'Đăng ký thành công!', user });
   } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: 'Email đã tồn tại hoặc dữ liệu không hợp lệ!' });
+    res.status(400).json({ error: 'Email đã tồn tại!' });
   }
 });
 
-const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server bộ não đang chạy tại http://localhost:${PORT}`);
-});
-
-// API Đăng nhập
+// 3. API Đăng nhập
 app.post('/api/login', async (req, res) => {
   const { email, matKhau } = req.body;
-
   try {
-    // 1. Tìm người dùng theo Email
-    const user = await prisma.nGUOIDUNG.findUnique({
-      where: { EMAIL: email }
-    });
+    const user = await prisma.nGUOIDUNG.findUnique({ where: { EMAIL: email } });
+    if (!user) return res.status(404).json({ error: "Email chưa đăng ký!" });
 
-    if (!user) {
-      return res.status(404).json({ error: " Email này chưa đăng ký!" });
-    }
-
-    // 2. Kiểm tra mật khẩu (So sánh mật khẩu gõ vào với mật khẩu đã mã hóa)
     const isPasswordValid = await bcrypt.compare(matKhau, user.MATKHAU);
+    if (!isPasswordValid) return res.status(401).json({ error: "Mật khẩu sai!" });
 
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: "Mật khẩu sai rồi nhé!" });
-    }
-
-    // 3. Đăng nhập thành công
     res.status(200).json({ 
       message: "Đăng nhập thành công!", 
-      user: { hoTen: user.HOTEN, email: user.EMAIL, vaiTro: user.VAITRO } 
+      user: { 
+        hoTen: user.HOTEN, 
+        email: user.EMAIL, 
+        vaiTro: user.VAITRO,
+        avatar: user.AVATAR // Trả về ảnh khi đăng nhập
+      } 
     });
-
   } catch (error) {
-    res.status(500).json({ error: "Lỗi hệ thống rồi: " + error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
-
-// API Cập nhật thông tin người dùng
+// 4. API Cập nhật SĐT
 app.put('/api/update-profile', async (req, res) => {
   const { email, soDienThoai } = req.body;
-
   try {
     const updatedUser = await prisma.nGUOIDUNG.update({
       where: { EMAIL: email },
       data: { SODIENTHOAI: soDienThoai },
     });
-
     res.status(200).json({ 
       message: "Cập nhật thành công!", 
-      user: { 
-        hoTen: updatedUser.HOTEN, 
-        email: updatedUser.EMAIL, 
-        soDienThoai: updatedUser.SODIENTHOAI 
-      } 
+      user: { hoTen: updatedUser.HOTEN, email: updatedUser.EMAIL, soDienThoai: updatedUser.SODIENTHOAI } 
     });
   } catch (error) {
-    res.status(500).json({ error: "Không thể cập nhật thông tin!" });
+    res.status(500).json({ error: "Lỗi cập nhật!" });
   }
 });
 
-// API Đổi mật khẩu
+// 5. API Đổi mật khẩu
 app.post('/api/change-password', async (req, res) => {
   const { email, oldPassword, newPassword } = req.body;
-
   try {
     const user = await prisma.nGUOIDUNG.findUnique({ where: { EMAIL: email } });
-    
-    // Kiểm tra mật khẩu cũ có đúng không
     const isMatch = await bcrypt.compare(oldPassword, user.MATKHAU);
-    if (!isMatch) return res.status(401).json({ error: "Mật khẩu cũ không chính xác!" });
+    if (!isMatch) return res.status(401).json({ error: "Mật khẩu cũ sai!" });
 
-    // Mã hóa mật khẩu mới và lưu lại
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     await prisma.nGUOIDUNG.update({
       where: { EMAIL: email },
       data: { MATKHAU: hashedNewPassword },
     });
-
     res.status(200).json({ message: "Đổi mật khẩu thành công!" });
   } catch (error) {
     res.status(500).json({ error: "Lỗi hệ thống!" });
   }
 });
 
-// API: Lấy danh sách đơn hàng của người dùng theo Email
+// 6. API Lấy lịch sử đơn hàng
 app.get('/api/orders/:email', async (req, res) => {
   const { email } = req.params;
   try {
     const orders = await prisma.dONHANG.findMany({
-      where: {
-        NGUOIDUNG: {
-          EMAIL: email
-        }
-      },
-      include: {
-        CT_DONHANG: true // Lấy luôn chi tiết các món trong đơn hàng đó
-      },
-      orderBy: {
-        NGAYDAT: 'desc' // Đơn mới nhất hiện lên đầu
-      }
+      where: { NGUOIDUNG: { EMAIL: email } },
+      include: { CT_DONHANG: true },
+      orderBy: { NGAYDAT: 'desc' }
     });
     res.status(200).json(orders);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Lỗi khi lấy lịch sử đơn hàng!" });
+    res.status(500).json({ error: "Lỗi lịch sử!" });
   }
+});
+
+const PORT = 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server bộ não đang chạy tại http://localhost:${PORT}`);
 });

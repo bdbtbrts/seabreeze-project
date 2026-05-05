@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import './Profile.css'; // --- PHẦN BỔ SUNG: Import file CSS mới tạo ---
 
 const Profile = () => {
   const [user, setUser] = useState(null);
-  
-  // --- PHẦN BỔ SUNG: State cho form ---
   const [soDienThoai, setSoDienThoai] = useState('');
+  const [avatar, setAvatar] = useState('https://via.placeholder.com/150');
   const [passwords, setPasswords] = useState({
     oldPassword: '',
     newPassword: '',
@@ -15,13 +15,44 @@ const Profile = () => {
     const savedUser = JSON.parse(localStorage.getItem('user'));
     if (savedUser) {
       setUser(savedUser);
-      setSoDienThoai(savedUser.soDienThoai || ''); // Hiện SĐT cũ nếu có
+      setSoDienThoai(savedUser.soDienThoai || '');
+      // Sửa nhẹ logic hiển thị ảnh: Ưu tiên ảnh Database -> LocalStorage -> Mặc định
+      setAvatar(savedUser.AVATAR || savedUser.avatar || 'https://logoseabreeze.png'); 
     } else {
       window.location.href = '/login';
     }
   }, []);
 
-  // --- PHẦN BỔ SUNG: Hàm xử lý Cập nhật SĐT ---
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+    formData.append('email', user.email);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/upload-avatar', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setAvatar(data.avatarUrl);
+        // Nhớ update đúng trường AVATAR cho đồng bộ database
+        const updatedUser = { ...user, AVATAR: data.avatarUrl }; 
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+        alert("🎉 Cập nhật ảnh đại diện thành công!");
+      } else {
+        alert("❌ Lỗi: " + data.error);
+      }
+    } catch (error) {
+      alert("⚠️ Lỗi kết nối server khi tải ảnh!");
+    }
+  };
+
   const handleUpdateProfile = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/update-profile', {
@@ -32,23 +63,21 @@ const Profile = () => {
 
       const data = await response.json();
       if (response.ok) {
-        alert("Thành công: " + data.message);
-        // Cập nhật lại user trong localStorage và State để đồng bộ
+        alert("🎉 Thành công: " + data.message);
         const updatedUser = { ...user, soDienThoai: data.user.soDienThoai };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         setUser(updatedUser);
       } else {
-        alert("Lỗi: " + data.error);
+        alert("❌ Lỗi: " + data.error);
       }
     } catch (error) {
-      alert("Lỗi kết nối server!");
+      alert("⚠️ Lỗi kết nối server!");
     }
   };
 
-  // --- PHẦN BỔ SUNG: Hàm xử lý Đổi mật khẩu ---
   const handleChangePassword = async () => {
     if (passwords.newPassword !== passwords.confirmPassword) {
-      return alert("Mật khẩu mới nhập lại không khớp!");
+      return alert("❌ Mật khẩu mới nhập lại không khớp!");
     }
 
     try {
@@ -64,101 +93,131 @@ const Profile = () => {
 
       const data = await response.json();
       if (response.ok) {
-        alert("Đổi mật khẩu thành công!");
-        setPasswords({ oldPassword: '', newPassword: '', confirmPassword: '' }); // Xóa trắng form
+        alert("🎉 Đổi mật khẩu thành công!");
+        setPasswords({ oldPassword: '', newPassword: '', confirmPassword: '' });
       } else {
-        alert("Lỗi: " + data.error);
+        alert("❌ Lỗi: " + data.error);
       }
     } catch (error) {
-      alert("Lỗi kết nối server!");
+      alert("⚠️ Lỗi kết nối server!");
     }
   };
 
-  if (!user) return <div>Đang tải...</div>;
+  if (!user) return <div className="profile-master-container">Đang tải hồ sơ...</div>;
 
   return (
-    <div style={{ padding: '50px', maxWidth: '600px', margin: 'auto', border: '1px solid #ddd', borderRadius: '10px', backgroundColor: '#f9f9f9' }}>
-      <h1 style={{ textAlign: 'center', color: '#009be5' }}>HỒ SƠ CÁ NHÂN</h1>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div>
-          <p><strong>Họ và tên:</strong> {user.hoTen}</p>
-          <p><strong>Email:</strong> {user.email}</p>
-          <p><strong>Vai trò:</strong> {user.vaiTro || 'Khách hàng'}</p>
-        </div>
+    // Áp dụng class bao ngoài
+    <div className="profile-master-container">
+      {/* Khối thẻ chính */}
+      <div className="profile-card">
+        <h1 className="profile-header-title">Hồ Sơ Cả Nhân</h1>
         
-        {/* --- CẬP NHẬT THÔNG TIN --- */}
-        <div style={{ borderTop: '1px solid #eee', paddingTop: '20px' }}>
-          <h3>Cập nhật thông tin</h3>
-          <label>Số điện thoại:</label>
-          <input 
-            type="text" 
-            value={soDienThoai}
-            onChange={(e) => setSoDienThoai(e.target.value)}
-            placeholder="Nhập số điện thoại mới" 
-            style={{ padding: '10px', width: '100%', marginBottom: '10px' }} 
-          />
+        <div className="form-section">
+          
+          {/* --- GIAO DIỆN AVATAR (Class mới) --- */}
+          <div className="avatar-section">
+            <div className="avatar-wrapper">
+              <img 
+                src={avatar} 
+                alt="Avatar" 
+                className="avatar-image" // Class cho ảnh tròn
+              />
+              <label htmlFor="avatar-input" className="avatar-edit-label">
+                📷
+              </label>
+              <input 
+                id="avatar-input" 
+                type="file" 
+                accept="image/*" 
+                onChange={handleAvatarChange} 
+                style={{ display: 'none' }} 
+              />
+            </div>
+            
+            <p className="profile-user-name">{user.hoTen}</p>
+            <p className="profile-user-email">{user.email}</p>
+            <span className="role-badge">
+              {user.vaiTro || 'Khách hàng'}
+            </span>
+          </div>
+          
+          {/* --- CẬP NHẬT THÔNG TIN (Class mới) --- */}
+          <div className="form-group">
+            <h3 className="form-group-title">👤 Thông tin cơ bản</h3>
+            
+            <div className="form-input-wrapper">
+              <label className="form-label">Số điện thoại:</label>
+              <input 
+                type="text" 
+                value={soDienThoai}
+                onChange={(e) => setSoDienThoai(e.target.value)}
+                placeholder="Nhập số điện thoại mới" 
+                className="form-input" 
+              />
+            </div>
+            
+            <button 
+              onClick={handleUpdateProfile}
+              className="btn-save-profile" // Class nút bấm mới
+            >
+              Lưu thay đổi
+            </button>
+          </div>
+
+          {/* --- ĐỔI MẬT KHẨU (Class mới) --- */}
+          <div className="form-group">
+            <h3 className="form-group-title">🔒 Bảo mật tài khoản</h3>
+            
+            <div className="form-input-wrapper">
+              <input 
+                type="password" 
+                placeholder="Mật khẩu hiện tại" 
+                value={passwords.oldPassword}
+                onChange={(e) => setPasswords({...passwords, oldPassword: e.target.value})}
+                className="form-input" 
+              />
+            </div>
+            
+            <div className="form-input-wrapper">
+              <input 
+                type="password" 
+                placeholder="Mật khẩu mới" 
+                value={passwords.newPassword}
+                onChange={(e) => setPasswords({...passwords, newPassword: e.target.value})}
+                className="form-input" 
+              />
+            </div>
+            
+            <div className="form-input-wrapper">
+              <input 
+                type="password" 
+                placeholder="Xác nhận mật khẩu mới" 
+                value={passwords.confirmPassword}
+                onChange={(e) => setPasswords({...passwords, confirmPassword: e.target.value})}
+                className="form-input" 
+              />
+            </div>
+            
+            <button 
+              onClick={handleChangePassword}
+              className="btn-change-password" // Class nút lá cây bo góc
+            >
+              Đổi mật khẩu
+            </button>
+          </div>
+
+          {/* --- ĐĂNG XUẤT (Class nút viền đỏ xịn) --- */}
           <button 
-            onClick={handleUpdateProfile}
-            style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '5px' }}
+            onClick={() => {
+              localStorage.removeItem('user');
+              alert("👋 Đã đăng xuất thành công. Hẹn gặp lại!");
+              window.location.href = '/login';
+            }}
+            className="btn-logout"
           >
-            Lưu thay đổi
+            ĐĂNG XUẤT TÀI KHOẢN
           </button>
         </div>
-
-        {/* --- ĐỔI MẬT KHẨU --- */}
-        <div style={{ borderTop: '1px solid #eee', paddingTop: '20px' }}>
-          <h3>Đổi mật khẩu</h3>
-          <input 
-            type="password" 
-            placeholder="Mật khẩu hiện tại" 
-            value={passwords.oldPassword}
-            onChange={(e) => setPasswords({...passwords, oldPassword: e.target.value})}
-            style={{ padding: '10px', width: '100%', marginBottom: '10px' }} 
-          />
-          <input 
-            type="password" 
-            placeholder="Mật khẩu mới" 
-            value={passwords.newPassword}
-            onChange={(e) => setPasswords({...passwords, newPassword: e.target.value})}
-            style={{ padding: '10px', width: '100%', marginBottom: '10px' }} 
-          />
-          <input 
-            type="password" 
-            placeholder="Xác nhận mật khẩu mới" 
-            value={passwords.confirmPassword}
-            onChange={(e) => setPasswords({...passwords, confirmPassword: e.target.value})}
-            style={{ padding: '10px', width: '100%', marginBottom: '10px' }} 
-          />
-          <button 
-            onClick={handleChangePassword}
-            style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '5px' }}
-          >
-            Đổi mật khẩu
-          </button>
-        </div>
-
-        {/* --- ĐĂNG XUẤT --- */}
-        <button 
-          onClick={() => {
-            localStorage.removeItem('user');
-            alert("Đã đăng xuất thành công!");
-            window.location.href = '/login';
-          }}
-          style={{ 
-            marginTop: '20px', 
-            padding: '12px', 
-            backgroundColor: '#dc3545', 
-            color: 'white', 
-            border: 'none', 
-            width: '100%',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            borderRadius: '5px'
-          }}
-        >
-          ĐĂNG XUẤT TÀI KHOẢN
-        </button>
       </div>
     </div>
   );

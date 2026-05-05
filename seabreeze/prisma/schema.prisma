@@ -14,10 +14,9 @@ model NGUOIDUNG {
   EMAIL       String      @unique
   MATKHAU     String
   SODIENTHOAI String?
+  AVATAR      String?     //  lưu đường dẫn ảnh
   VAITRO      String      @default("Khách hàng")
   TRANGTHAI   String      @default("Hoạt động")
-  
-  // Quan hệ: Một người dùng có nhiều đơn hàng
   DONHANG     DONHANG[]
 }
 
