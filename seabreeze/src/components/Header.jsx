@@ -57,6 +57,10 @@ function Header() {
             <Link to="/history" style={{ textDecoration: 'none', color: '#666', fontSize: '14px' }}>
               Lịch sử
             </Link>
+
+            <Link to="/tracking" style={{ textDecoration: 'none', color: '#666', fontSize: '14px' }}>
+              Theo dõi thuê
+            </Link>
             
             <Link to="/profile" style={{ textDecoration: 'none', color: '#333', fontWeight: '500' }}>
               Chào, {user.hoTen}

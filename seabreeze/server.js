@@ -174,3 +174,25 @@ const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server bộ não đang chạy tại http://localhost:${PORT}`);
 });
+
+
+
+app.get('/api/rental-tracking/:email', async (req, res) => {
+  const { email } = req.params;
+  console.log("🔍 Đang tìm đồ thuê cho email:", email); // Dòng kiểm tra 1
+  try {
+    const tracking = await prisma.tHEODOITHUE.findMany({
+      where: {
+        CT_DONHANG: {
+          DONHANG: { NGUOIDUNG: { EMAIL: email } }
+        }
+      },
+      include: { CT_DONHANG: true }
+    });
+    console.log("📊 Dữ liệu tìm thấy:", tracking); // Dòng kiểm tra 2
+    res.status(200).json(tracking);
+  } catch (error) {
+    console.error("❌ Lỗi query:", error);
+    res.status(500).json({ error: "Lỗi lấy dữ liệu theo dõi!" });
+  }
+});
